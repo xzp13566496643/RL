@@ -1,0 +1,25 @@
+{
+  "checks": {
+    "serial_batch_match": true,
+    "max_qpos_error": 0.0,
+    "selective_reset": true,
+    "finite_states": true,
+    "warnings": 0,
+    "nq": 25,
+    "nv": 24,
+    "actuators": 18,
+    "dt": 0.05
+  },
+  "num_envs": 64,
+  "threads": 8,
+  "updates": 0,
+  "transitions": 0,
+  "physics_steps": 0,
+  "training_seconds": 0.1465035830042325,
+  "policy_parameter_change_l2": 0.0,
+  "training_warning_count": 0,
+  "model_sha256": "a83fbe2ac90a2a3bc1556749c4ecbe50ce509b84ff58f6726b2b6b4d205a7cc9",
+  "training_history": [],
+  "converged_walking_claim": false,
+  "viewer_closed": true
+}

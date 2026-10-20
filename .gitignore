@@ -1,0 +1,19 @@
+# 本机Python环境与缓存
+.venv*/
+__pycache__/
+*.py[cod]
+
+# MuJoCo与系统运行日志
+MUJOCO_LOG.TXT
+*.log
+
+# 训练过程产生的模型、回放和监控目录
+runs/
+checkpoints/
+tensorboard/
+wandb/
+
+# 编辑器和系统文件
+.idea/
+.vscode/
+.DS_Store

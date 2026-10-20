@@ -1,0 +1,24 @@
+absl-py==2.5.1
+etils==1.14.0
+filelock==4.2.0
+fsspec==2026.9.0
+glfw==2.10.2
+iniconfig==2.3.1
+Jinja2==3.1.6
+MarkupSafe==3.0.4
+-e git+https://github.com/kevinzakka/mjbatch.git@088e2d4cd0d5878ea184010446c058710f23a671#egg=mjbatch
+mpmath==1.3.0
+mujoco==3.14.0
+networkx==3.6.1
+numpy==2.4.6
+packaging==26.3
+pillow==12.3.0
+pluggy==1.6.0
+Pygments==2.21.0
+PyOpenGL==3.1.10
+pytest==9.1.1
+sympy==1.14.0
+torch==2.9.0
+typing_extensions==4.16.0
+websockets==17.2
+zipp==4.1.1

@@ -1,0 +1,13 @@
+{
+  "name": "Tick-MJBatch-Ubuntu-amd64-20261015",
+  "target": "Ubuntu amd64 / x86_64; recommended Ubuntu 24.04 / Python 3.12",
+  "packaging_only": true,
+  "functional_verification_this_handoff": "not run, as explicitly requested",
+  "tick_on_ubuntu_verified": false,
+  "historical_runtime_platform": "macOS ARM64",
+  "mjbatch_commit": "088e2d4cd0d5878ea184010446c058710f23a671",
+  "tick_model_sha256": "a83fbe2ac90a2a3bc1556749c4ecbe50ce509b84ff58f6726b2b6b4d205a7cc9",
+  "arc_rl_source_archive_sha256": "233ac19f5c1735c3ab8934efa6a44415e67356ea48899553ab58d1af3208ba78",
+  "scope": "Tick/mjbatch source, original model, CPU install/run scripts, existing short PPO checkpoint, screenshots and historical records",
+  "dependencies_bundled": false
+}

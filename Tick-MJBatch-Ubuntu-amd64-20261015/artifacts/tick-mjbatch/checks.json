@@ -1,0 +1,11 @@
+{
+  "serial_batch_match": true,
+  "max_qpos_error": 0.0,
+  "selective_reset": true,
+  "finite_states": true,
+  "warnings": 0,
+  "nq": 25,
+  "nv": 24,
+  "actuators": 18,
+  "dt": 0.05
+}

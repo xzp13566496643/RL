@@ -1,0 +1,2 @@
+# 仅Gym接口新增依赖；MuJoCo和NumPy继续使用现有环境，不安装PPO/Torch。
+gymnasium==1.2.2

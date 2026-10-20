@@ -1,0 +1,4 @@
+# Linux runtime dependencies; setup-ubuntu.sh installs CPU-only PyTorch separately.
+mujoco==3.14.0
+numpy==2.4.6
+pillow==12.3.0

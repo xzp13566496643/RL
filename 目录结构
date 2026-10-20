@@ -1,0 +1,9 @@
+| 文件 | 作用 |
+|---|---|
+| [run.py](/home/xuzhanpeng/Hexapod_robot/RL/hexapod_sim/run.py) | 主入口：控制时序、物理步进、窗口刷新和状态检查 |
+| [keyboard.py](/home/xuzhanpeng/Hexapod_robot/RL/hexapod_sim/keyboard.py) | 键盘输入 → X/Y/R命令、停止、重置 |
+| [gait.py](/home/xuzhanpeng/Hexapod_robot/RL/hexapod_sim/gait.py) | 三足步态：命令 → 六腿足端轨迹 |
+| [kinematics.py](/home/xuzhanpeng/Hexapod_robot/RL/hexapod_sim/kinematics.py) | 几何参数、六腿安装位置、HOME、IK |
+| [model.py](/home/xuzhanpeng/Hexapod_robot/RL/hexapod_sim/model.py) | 构建机身、腿、关节、碰撞体和位置执行器 |
+| [physics.py](/home/xuzhanpeng/Hexapod_robot/RL/hexapod_sim/physics.py) | 质量、摩擦、PD增益、力矩上限、物理步长 |
+| [terrain.py](/home/xuzhanpeng/Hexapod_robot/RL/hexapod_sim/terrain.py) | 创建平地、斜坡和障碍物 |

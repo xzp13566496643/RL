@@ -1,0 +1,236 @@
+{
+  "checks": {
+    "serial_batch_match": true,
+    "max_qpos_error": 0.0,
+    "selective_reset": true,
+    "finite_states": true,
+    "warnings": 0,
+    "nq": 25,
+    "nv": 24,
+    "actuators": 18,
+    "dt": 0.05
+  },
+  "num_envs": 64,
+  "threads": 8,
+  "updates": 30,
+  "transitions": 61440,
+  "physics_steps": 1536000,
+  "training_seconds": 6.119136082998011,
+  "policy_parameter_change_l2": 7.012235641479492,
+  "training_warning_count": 0,
+  "model_sha256": "a83fbe2ac90a2a3bc1556749c4ecbe50ce509b84ff58f6726b2b6b4d205a7cc9",
+  "training_history": [
+    {
+      "update": 1,
+      "transitions": 2048,
+      "mean_reward": 1.7304961681365967,
+      "loss": 159.51997502644858,
+      "episodes_ended": 1
+    },
+    {
+      "update": 2,
+      "transitions": 4096,
+      "mean_reward": 1.6170023679733276,
+      "loss": 140.13115437825522,
+      "episodes_ended": 5
+    },
+    {
+      "update": 3,
+      "transitions": 6144,
+      "mean_reward": 1.5792348384857178,
+      "loss": 125.13754240671794,
+      "episodes_ended": 7
+    },
+    {
+      "update": 4,
+      "transitions": 8192,
+      "mean_reward": 1.6252408027648926,
+      "loss": 132.27366638183594,
+      "episodes_ended": 5
+    },
+    {
+      "update": 5,
+      "transitions": 10240,
+      "mean_reward": 1.5596582889556885,
+      "loss": 123.94988854726155,
+      "episodes_ended": 6
+    },
+    {
+      "update": 6,
+      "transitions": 12288,
+      "mean_reward": 1.6296981573104858,
+      "loss": 126.68083031972249,
+      "episodes_ended": 6
+    },
+    {
+      "update": 7,
+      "transitions": 14336,
+      "mean_reward": 1.605205774307251,
+      "loss": 102.74952761332194,
+      "episodes_ended": 40
+    },
+    {
+      "update": 8,
+      "transitions": 16384,
+      "mean_reward": 1.6403864622116089,
+      "loss": 129.83447233835855,
+      "episodes_ended": 5
+    },
+    {
+      "update": 9,
+      "transitions": 18432,
+      "mean_reward": 1.6465802192687988,
+      "loss": 123.24305152893066,
+      "episodes_ended": 9
+    },
+    {
+      "update": 10,
+      "transitions": 20480,
+      "mean_reward": 1.6000534296035767,
+      "loss": 123.09695148468018,
+      "episodes_ended": 9
+    },
+    {
+      "update": 11,
+      "transitions": 22528,
+      "mean_reward": 1.646972894668579,
+      "loss": 122.98108863830566,
+      "episodes_ended": 10
+    },
+    {
+      "update": 12,
+      "transitions": 24576,
+      "mean_reward": 1.6105835437774658,
+      "loss": 125.83547782897949,
+      "episodes_ended": 3
+    },
+    {
+      "update": 13,
+      "transitions": 26624,
+      "mean_reward": 1.6444509029388428,
+      "loss": 101.3396692276001,
+      "episodes_ended": 31
+    },
+    {
+      "update": 14,
+      "transitions": 28672,
+      "mean_reward": 1.6874229907989502,
+      "loss": 127.69956811269124,
+      "episodes_ended": 6
+    },
+    {
+      "update": 15,
+      "transitions": 30720,
+      "mean_reward": 1.5755541324615479,
+      "loss": 111.48075580596924,
+      "episodes_ended": 11
+    },
+    {
+      "update": 16,
+      "transitions": 32768,
+      "mean_reward": 1.6773298978805542,
+      "loss": 124.06109142303467,
+      "episodes_ended": 12
+    },
+    {
+      "update": 17,
+      "transitions": 34816,
+      "mean_reward": 1.564807415008545,
+      "loss": 110.7355744043986,
+      "episodes_ended": 5
+    },
+    {
+      "update": 18,
+      "transitions": 36864,
+      "mean_reward": 1.6021082401275635,
+      "loss": 115.00747426350911,
+      "episodes_ended": 5
+    },
+    {
+      "update": 19,
+      "transitions": 38912,
+      "mean_reward": 1.6001747846603394,
+      "loss": 93.77755991617839,
+      "episodes_ended": 28
+    },
+    {
+      "update": 20,
+      "transitions": 40960,
+      "mean_reward": 1.6216020584106445,
+      "loss": 116.5181261698405,
+      "episodes_ended": 6
+    },
+    {
+      "update": 21,
+      "transitions": 43008,
+      "mean_reward": 1.6122548580169678,
+      "loss": 112.84635893503825,
+      "episodes_ended": 10
+    },
+    {
+      "update": 22,
+      "transitions": 45056,
+      "mean_reward": 1.6258295774459839,
+      "loss": 115.10285663604736,
+      "episodes_ended": 8
+    },
+    {
+      "update": 23,
+      "transitions": 47104,
+      "mean_reward": 1.5873442888259888,
+      "loss": 108.12726656595866,
+      "episodes_ended": 7
+    },
+    {
+      "update": 24,
+      "transitions": 49152,
+      "mean_reward": 1.6152513027191162,
+      "loss": 111.57855955759685,
+      "episodes_ended": 6
+    },
+    {
+      "update": 25,
+      "transitions": 51200,
+      "mean_reward": 1.5741955041885376,
+      "loss": 102.4663896560669,
+      "episodes_ended": 31
+    },
+    {
+      "update": 26,
+      "transitions": 53248,
+      "mean_reward": 1.7124643325805664,
+      "loss": 126.89249579111735,
+      "episodes_ended": 7
+    },
+    {
+      "update": 27,
+      "transitions": 55296,
+      "mean_reward": 1.6146894693374634,
+      "loss": 113.19716262817383,
+      "episodes_ended": 5
+    },
+    {
+      "update": 28,
+      "transitions": 57344,
+      "mean_reward": 1.6142078638076782,
+      "loss": 109.6367359161377,
+      "episodes_ended": 7
+    },
+    {
+      "update": 29,
+      "transitions": 59392,
+      "mean_reward": 1.63185715675354,
+      "loss": 108.06018924713135,
+      "episodes_ended": 8
+    },
+    {
+      "update": 30,
+      "transitions": 61440,
+      "mean_reward": 1.5947089195251465,
+      "loss": 105.09921296437581,
+      "episodes_ended": 5
+    }
+  ],
+  "converged_walking_claim": false,
+  "viewer_closed": true
+}
