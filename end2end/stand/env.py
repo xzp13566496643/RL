@@ -6,7 +6,7 @@ import mujoco
 import numpy as np
 
 from hexapod_sim.kinematics import LEGS, inverse
-from hexapod_sim.model import (make_model, controlled_qpos,
+from hexapod_sim.model import (make_model, controlled_joint_indices, controlled_qpos,
                                controlled_qpos_indices, set_controlled_qpos)
 from hexapod_sim.perturbations import Perturbations
 from hexapod_sim import physics
@@ -18,7 +18,10 @@ class StandEnv:
     def __init__(self, control_dt=.02, max_speed_deg_s=60.,
                  joint_bias_deg=3., mount_bias_mm=0., length_bias_mm=0., imu_config=None,
                  scene_config=None, velocity_command=(0., 0., 0.),
-                 velocity_command_scale=(2., 2., .25)):
+                 velocity_command_scale=(2., 2., .25),
+                 critic_target_clearance_m=.0792, critic_clearance_scale_m=.020,
+                 critic_alignment_scale_deg=30., critic_joint_velocity_scale_rad_s=10.,
+                 critic_privileged_clip=10.):
         values = (control_dt, max_speed_deg_s)
         if any(not np.isfinite(v) or v <= 0 for v in values):
             raise ValueError('控制周期和目标角速度限制必须为有限正数')
@@ -33,6 +36,17 @@ class StandEnv:
                 or np.any(self.velocity_command_scale <= 0)):
             raise ValueError('目标速度观测尺度必须是三个有限正数')
         self.set_velocity_command(velocity_command)
+        critic_scales = (critic_clearance_scale_m, critic_alignment_scale_deg,
+                         critic_joint_velocity_scale_rad_s, critic_privileged_clip)
+        if any(not np.isfinite(v) or v <= 0 for v in critic_scales):
+            raise ValueError('Critic特权观测尺度和裁剪值必须为有限正数')
+        if not np.isfinite(critic_target_clearance_m):
+            raise ValueError('Critic目标净空必须为有限数')
+        self.critic_target_clearance_m = critic_target_clearance_m
+        self.critic_clearance_scale_m = critic_clearance_scale_m
+        self.critic_alignment_scale_rad = np.deg2rad(critic_alignment_scale_deg)
+        self.critic_joint_velocity_scale_rad_s = critic_joint_velocity_scale_rad_s
+        self.critic_privileged_clip = critic_privileged_clip
         # IK仅在初始化计算固定参考角；step不调用IK或步态。
         self.reference = np.concatenate([
             inverse(i, np.asarray(leg.mount) + leg.home) for i, leg in enumerate(LEGS)])
@@ -121,6 +135,37 @@ class StandEnv:
         self.support_point = np.array([*self.data.qpos[:2], ground])
         self.ground_normal = self.local_ground_normal(*self.data.qpos[:2])
         self.slope_deg = float(np.rad2deg(np.arccos(np.clip(self.ground_normal[2], -1., 1.))))
+        # 正式回合前保持本局随机初始目标：先等待形成足端支撑，再额外压实一段时间。
+        # 这段物理不采集观测、不计算奖励，也不允许策略接管。
+        self.settle_seconds = (self.scene_config.settle_seconds
+                               if self.scene_config is not None else 0.)
+        initial_xy = self.data.qpos[:2].copy()
+        settle_steps = round(self.settle_seconds / self.model.opt.timestep)
+        if not np.isclose(settle_steps * self.model.opt.timestep, self.settle_seconds):
+            raise ValueError('预稳定时长必须是物理步长的整数倍')
+        self.landing_detected = False
+        if self.scene_config is not None and self.settle_seconds > 0:
+            timeout_steps = int(np.ceil(self.scene_config.landing_timeout_seconds
+                                        / self.model.opt.timestep))
+            for _ in range(timeout_steps):
+                mujoco.mj_step(self.model, self.data)
+                if np.count_nonzero(self.terrain_contacts()[1]) >= self.scene_config.landing_min_feet:
+                    self.landing_detected = True
+                    break
+        for _ in range(settle_steps):
+            mujoco.mj_step(self.model, self.data)
+        self.pre_settle_duration_s = float(self.data.time)
+        self.pre_settle_xy_drift_m = float(np.linalg.norm(self.data.qpos[:2] - initial_xy))
+        self.pre_settle_foot_contacts = int(np.count_nonzero(self.terrain_contacts()[1]))
+        # 预稳定只是构造初始状态：正式回合从静止、t=0和全新IMU历史开始。
+        self.data.qvel[:] = 0.
+        self.data.qacc[:] = 0.
+        self.data.qacc_warmstart[:] = 0.
+        self.data.time = 0.
+        mujoco.mj_forward(self.model, self.data)
+        ground = self.ground_height(*self.data.qpos[:2])
+        self.support_point = np.array([*self.data.qpos[:2], ground])
+        self.ground_normal = self.local_ground_normal(*self.data.qpos[:2])
         self.physics_steps = 0
         self.previous_action = np.zeros(18, dtype=np.float32)
         self.imu.reset(int(imu_seed.generate_state(1)[0]))
@@ -175,6 +220,59 @@ class StandEnv:
         return np.clip(obs, -self.imu.config.observation_clip,
                        self.imu.config.observation_clip).astype(np.float32)
 
+    def terrain_contacts(self):
+        """返回机身接触、6维足端接触和6维各腿非足端接触状态。"""
+        body_geom = self.model.geom('body_collision').id
+        feet = {self.model.geom(f'foot{i}_collision').id: i for i in range(6)}
+        body_touch = False
+        foot_touch = np.zeros(6, dtype=np.float32)
+        leg_touch = np.zeros(6, dtype=np.float32)
+        for contact in self.data.contact:
+            if contact.dist > 0:
+                continue
+            for robot, other in ((contact.geom1, contact.geom2),
+                                 (contact.geom2, contact.geom1)):
+                if self.model.geom_group[other] != 2:
+                    continue
+                body_touch |= robot == body_geom
+                if robot in feet:
+                    foot_touch[feet[robot]] = 1.
+                body_id = self.model.geom_bodyid[robot]
+                body_name = self.model.body(body_id).name if body_id else ''
+                if body_name.startswith('leg') and len(body_name) > 3 and body_name[3].isdigit():
+                    leg_touch[int(body_name[3])] = 1.
+        return bool(body_touch), foot_touch, leg_touch
+
+    def critic_observation(self):
+        """训练专用149维特权观测；不得作为Actor或实机推理输入。"""
+        state = self.state()
+        _, foot_touch, leg_touch = self.terrain_contacts()
+        joint_ids = controlled_joint_indices(self.model)
+        velocity_indices = self.model.jnt_dofadr[joint_ids]
+        ranges = self.model.actuator_ctrlrange
+        midpoint = ranges.mean(axis=1)
+        half_range = (ranges[:, 1] - ranges[:, 0]) / 2.
+        joint_position = (controlled_qpos(self.model, self.data) - midpoint) / half_range
+        actuator_target = (self.data.ctrl - midpoint) / half_range
+        privileged = np.concatenate((
+            np.array([np.deg2rad(state['ground_alignment_deg'])
+                      / self.critic_alignment_scale_rad,
+                      (state['body_clearance_m'] - self.critic_target_clearance_m)
+                      / self.critic_clearance_scale_m], dtype=np.float32),
+            foot_touch,
+            joint_position.astype(np.float32),
+            (self.data.qvel[velocity_indices]
+             / self.critic_joint_velocity_scale_rad_s).astype(np.float32),
+            actuator_target.astype(np.float32),
+            leg_touch,
+        ))
+        privileged = np.clip(privileged, -self.critic_privileged_clip,
+                             self.critic_privileged_clip)
+        obs = np.concatenate((self.observation(), privileged)).astype(np.float32)
+        if obs.shape != (149,) or not np.isfinite(obs).all():
+            raise RuntimeError('Critic特权观测维度不匹配或出现非有限值')
+        return obs
+
     def set_velocity_command(self, command):
         """设置(vx, vy, wz)目标；当前站立任务固定为零，接口为后续行走预留。"""
         command = np.asarray(command, dtype=np.float32)
@@ -195,16 +293,32 @@ class StandEnv:
             raise RuntimeError('机身下方未找到地形')
         return float(5. - distance), int(geomid[0])
 
-    def local_ground_normal(self, x, y, epsilon=.01):
-        """由高度射线有限差分估计机身下方局部地形法向，仅用于评分和调试。"""
-        dzdx = (self.ground_height(x + epsilon, y) - self.ground_height(x - epsilon, y)) / (2*epsilon)
-        dzdy = (self.ground_height(x, y + epsilon) - self.ground_height(x, y - epsilon)) / (2*epsilon)
-        normal = np.array([-dzdx, -dzdy, 1.])
+    def local_ground_normal(self, x, y):
+        """返回机身正下方射线命中表面的真实法向，统一指向世界坐标上方。"""
+        _, geomid = self.support_surface(x, y)
+        normal = self.data.geom_xmat[geomid].reshape(3, 3)[:, 2].copy()
+        if normal[2] < 0:
+            normal *= -1
         return normal / np.linalg.norm(normal)
 
     def state(self):
         rotation = self.data.body('body').xmat.reshape(3, 3)
         ground, geomid = self.support_surface(*self.data.qpos[:2])
+        ground_normal = self.data.geom_xmat[geomid].reshape(3, 3)[:, 2].copy()
+        if ground_normal[2] < 0:
+            ground_normal *= -1
+        ground_normal /= np.linalg.norm(ground_normal)
+        self.ground_normal = ground_normal
+        self.slope_deg = float(np.rad2deg(np.arccos(np.clip(ground_normal[2], -1., 1.))))
+        body_axis = rotation[:, 2]
+        alignment_rad = float(np.arccos(np.clip(np.dot(body_axis, ground_normal), -1., 1.)))
+        # 圆柱机身沿地面法向的支撑半径；据此计算机身外表面而非原点到地面的净空。
+        axial = abs(float(np.dot(body_axis, ground_normal)))
+        body_extent = (physics.BODY_HALF_HEIGHT * axial
+                       + physics.BODY_RADIUS * np.sqrt(max(0., 1. - axial ** 2)))
+        ground_point = np.array([self.data.qpos[0], self.data.qpos[1], ground])
+        body_clearance = float(np.dot(self.data.qpos[:3] - ground_point, ground_normal)
+                               - body_extent)
         on_patch = True
         if self.patch is not None:
             delta = np.abs(self.data.qpos[:2] - self.patch['patch_center'])
@@ -212,10 +326,17 @@ class StandEnv:
         return dict(time_s=float(self.data.time), height_m=float(self.data.qpos[2]),
                     ground_height_m=ground,
                     clearance_m=float(self.data.qpos[2] - ground),
+                    body_clearance_m=body_clearance,
+                    ground_alignment_deg=float(np.rad2deg(alignment_rad)),
+                    ground_normal=ground_normal.tolist(),
                     on_platform=on_patch,
                     terrain_type='flat' if self.patch is None else self.patch['kind'],
                     terrain_level=0 if self.patch is None else self.patch['level'],
                     slope_deg=float(self.slope_deg),
+                    reset_landing_detected=bool(self.landing_detected),
+                    reset_settle_duration_s=float(self.pre_settle_duration_s),
+                    reset_xy_drift_m=float(self.pre_settle_xy_drift_m),
+                    reset_foot_contacts=int(self.pre_settle_foot_contacts),
                     tilt_deg=float(np.rad2deg(np.arccos(np.clip(rotation[2, 2], -1, 1)))),
                     command_deg=np.rad2deg(self.command).tolist(),
                     actuator_target_deg=np.rad2deg(self.data.ctrl).tolist(),

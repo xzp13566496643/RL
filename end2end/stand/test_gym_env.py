@@ -62,14 +62,17 @@ class GymTests(unittest.TestCase):
             env.close()
 
     def test_failure(self):
-        env = StandGymEnv(scene_config=SceneConfig(1., 0., 0.),
-                          task_config=TaskConfig(target_height_m=.2, min_height_m=.15))
+        env = StandGymEnv(scene_config=SceneConfig(1., 0., 0.))
         try:
             env.reset(seed=42)
+            # 深度放入地面，确保经过一个控制周期的接触解算后机身仍在接触。
+            env.task.env.data.qpos[2] = -.1
+            import mujoco
+            mujoco.mj_forward(env.task.env.model, env.task.env.data)
             _, reward, terminated, truncated, info = env.step(np.zeros(18, dtype=np.float32))
             self.assertTrue(terminated)
             self.assertFalse(truncated)
-            self.assertEqual(info['reason'], 'low_height')
+            self.assertEqual(info['reason'], 'body_contact')
             self.assertLess(reward, 0.)
         finally:
             env.close()

@@ -9,7 +9,7 @@ import numpy as np
 from .env import StandEnv
 from .imu import IMUConfig
 from .scene import SceneConfig
-from .task import StandTask
+from .task import StandTask, TaskConfig
 
 
 class StandGymEnv(gym.Env):
@@ -19,19 +19,27 @@ class StandGymEnv(gym.Env):
                  control_dt=.02, max_speed_deg_s=60.,
                  joint_bias_deg=3., mount_bias_mm=0., length_bias_mm=0.,
                  velocity_command=(0., 0., 0.), velocity_command_scale=(2., 2., .25),
+                 critic_alignment_scale_deg=30., critic_joint_velocity_scale_rad_s=10.,
+                 critic_privileged_clip=10.,
                  render_mode=None):
         super().__init__()
         if render_mode is not None:
             raise ValueError('当前Gym接口仅支持render_mode=None；可视化请使用demo')
         self.render_mode = None
         imu_config = imu_config if imu_config is not None else IMUConfig()
+        task_config = task_config if task_config is not None else TaskConfig()
         physics = StandEnv(control_dt=control_dt, max_speed_deg_s=max_speed_deg_s,
                            joint_bias_deg=joint_bias_deg,
                            mount_bias_mm=mount_bias_mm, length_bias_mm=length_bias_mm,
                            imu_config=imu_config,
                            scene_config=scene_config if scene_config is not None else SceneConfig(),
                            velocity_command=velocity_command,
-                           velocity_command_scale=velocity_command_scale)
+                           velocity_command_scale=velocity_command_scale,
+                           critic_target_clearance_m=task_config.target_body_clearance_m,
+                           critic_clearance_scale_m=task_config.body_clearance_tolerance_m,
+                           critic_alignment_scale_deg=critic_alignment_scale_deg,
+                           critic_joint_velocity_scale_rad_s=critic_joint_velocity_scale_rad_s,
+                           critic_privileged_clip=critic_privileged_clip)
         self.task = StandTask(physics, task_config)
         # 归一化IMU历史 + 上一动作18维 + 目标速度(vx,vy,wz)3维。
         self.observation_space = spaces.Box(low=-imu_config.observation_clip,

@@ -44,6 +44,56 @@ terminated表示失败，truncated表示时长到期，不自动重置。
 info保留真实状态及奖励分量，仅调试/评分使用，不能拼入策略观测。
 目前不支持渲染模式，也不引入Torch或PPO依赖。
 
+训练采用非对称Actor-Critic：Gym对Actor仍只返回81维实机可构造观测；info中的
+`critic_observation`为149维训练专用观测。它由81维Actor观测加上局部地面夹角、机身
+法向净空、6维足端接触、18维真实关节角、18维真实关节速度、18维PD实际目标和
+6维各腿非足端碰撞组成。Critic网络为149→256→128→64→1，仅用于仿真训练，不能部署到ESP32。
+68维特权部分采用固定尺度：夹角除以30°；净空以任务HOME目标为零点并除以20 mm容差；
+真实关节角和PD目标按各关节完整安全范围映射；关节速度除以10 rad/s；接触保持0/1；
+最后裁剪到±10。三个通用尺度集中在config.py的EnvironmentConfig，净空目标和尺度复用TaskConfig。
+
+`rollout.py`提供固定长度、多环境的PPO轨迹缓存，保存Actor/Critic观测、动作、旧log概率、
+旧价值、下一状态价值、奖励、terminated和truncated，并计算GAE与价值回报。真实失败不对
+下一状态价值bootstrap；时间上限会bootstrap，但两种结束都会切断GAE，避免跨reset串联两局。
+`collector.py`先实现单环境真实轨迹采集：调用Actor采样、Critic估值、Gym step和自动reset，
+填满buffer后计算GAE。它只采集数据，不更新网络；多环境采集在单环境PPO闭环验证后再扩展。
+`ppo.py`实现裁剪策略目标、裁剪价值损失、高斯基分布熵、随机mini-batch、多轮更新、
+全局梯度裁剪和目标KL提前停止。一个Adam优化器管理两套独立网络，更新后将Actor的
+`log_std`限制在[-3,0]；统计量会返回损失、熵、近似KL、裁剪比例和更新前梯度范数。
+
+`train.py`串联单环境采集、GAE和PPO更新。每轮向`metrics.jsonl`追加一条JSON指标；
+按配置周期原子保存`latest.pt`及带迭代号的快照，训练结束也保存latest。checkpoint包含
+Actor、Critic、Adam、迭代/样本计数、完整配置及Python/NumPy/Torch随机状态。恢复发生在
+rollout边界，会恢复学习状态并从新环境回合继续，不保存MuJoCo运行到一半的物理状态。
+
+先做20轮流程试跑：
+
+```bash
+.venv-mujoco/bin/python -m end2end.stand.train --iterations 20 --rollout-steps 128 --mini-batch-size 64
+```
+
+正式按config.py默认值训练：
+
+```bash
+.venv-mujoco/bin/python -m end2end.stand.train
+```
+
+从latest继续（总迭代数必须大于等于checkpoint当前轮数）：
+
+```bash
+.venv-mujoco/bin/python -m end2end.stand.train --resume end2end/stand/checkpoints/run-时间/latest.pt
+```
+
+## 训练参数总表
+
+训练侧需要反复调整的默认值集中在`config.py`：NetworkConfig控制Actor/Critic层宽、
+激活函数和初始探索标准差；EnvironmentConfig控制周期、目标限速、三类误差和速度命令；
+RolloutConfig控制步数、环境数、gamma、GAE lambda和优势归一化；PPOConfig控制学习率、
+裁剪、损失系数、训练轮数、mini-batch、梯度和KL；TrainingConfig控制种子、设备、总迭代、
+日志及checkpoint，并组合IMUConfig、SceneConfig和TaskConfig。TaskConfig内的RewardConfig
+集中列出所有奖励/惩罚权重及尺度。机器人质量、摩擦、执行器和接触等模型真值仍只在
+`hexapod_sim/physics.py`维护，不在训练配置复制第二份。
+
 由用户在RL目录执行安装和检查：
 
 ```bash
@@ -105,7 +155,7 @@ MuJoCo关节限位采用约束求解，实际关节位置可能存在微小越�
 `test_env`新增检查角度换算、模型限位和未裁剪HOME，以及偏置前后舵机目标边界。
 
 本目录复用hexapod_sim的模型与误差配置，不修改原步态入口。
-目前已有模拟IMU观测、任务奖励和回合管理，没有神经网络或PPO；固定目标角不等于闭环平衡。
+目前已有模拟IMU观测、任务奖励、回合管理及Actor/Critic网络，尚未接入PPO训练循环。
 
 - env.py：reset生成每局固定误差，step接收18维动作并推进物理。
 - demo.py：固定站姿/单关节正弦测试，可视化或无窗口运行。
@@ -116,7 +166,10 @@ MuJoCo关节限位采用约束求解，实际关节位置可能存在微小越�
 action形状(18,)，先裁剪到[-1,1]。
 负、正半轴分别把HOME分段映射到该关节安全下限、上限，不是对上一帧累加。
 之后限制目标变化速度（默认60°/s），最后施加本局舵机零位偏置。
-默认20 ms更新动作，每次10个2 ms物理步；这是仿真暂定周期，不代表实机已验证。
+Actor训练时从18维高斯分布采样原始动作，再经tanh平滑压缩到(-1,1)；PPO使用带
+变量变换修正的log概率。部署时执行`tanh(均值)`，不使用随机标准差。
+默认20 ms更新动作，每次4个5 ms物理步；期间按100 Hz产生2次IMU采样。
+这是仿真暂定周期，不代表实机已验证。
 限速只限制发送目标，不保证实际关节角速度或真实硬件安全。
 角度采用MuJoCo几何角；接入实机时须转换Arduino舵机角，不能直接发送这些数值。
 
@@ -150,7 +203,7 @@ cd /home/xuzhanpeng/Hexapod_robot/RL
 换seed再reset生成另一组误差；相同seed可复现。端到端站立默认关节偏置±3°，安装位置和长度偏置默认0。
 `--joint-bias-deg 0`关闭关节偏置；这里的默认值不改变原hexapod_sim步态入口的默认值。
 可用--headless、--seconds、--control-ms、--max-speed调整测试；动作范围统一来自安全关节限位。
-演示发现高度低于40 mm或倾角超过60°时记录首次失败，但继续物理运行，不关闭窗口或重置。
+演示仅在机身实际接触地形时记录首次失败，但继续物理运行，不关闭窗口或重置。
 到--seconds时暂停在最后状态，保留窗口供鼠标观察，关闭窗口/Ctrl+C退出。
 --headless在指定时长结束后正常退出；训练任务的失败/超时规则不变。
 这些是仿真动作检查，不对真机下发任何命令。
@@ -190,14 +243,15 @@ demo每秒打印一次六轴读数；最终输出零偏、采样总数和观测�
 `reset(seed=None)`返回(81维策略观测, info)，不带种子则每局重新随机误差。
 `step(action)`返回(observation, reward, terminated, truncated, info)。
 terminated是失败，truncated是到时；结束后必须显式reset，不自动跨局。
-TaskConfig默认10秒一局，目标高度97.2 mm，低于40 mm、倾角超过60度或机身触地失败。
+TaskConfig默认10秒一局；HOME机身原点高97.2 mm、半厚18 mm，因此目标机身下表面净空为79.2 mm。
+净空在目标±20 mm内均为满分，超出后按离边界的距离对称衰减。姿态或净空本身不提前终止，机身实际触地才失败。
 重置从接近HOME姿态开始，不预先用控制器消除装配误差，不包含倒地起身。
 
-奖励先按每秒速率计算：水平姿态最多+2，高度匹配最多+1，另外扣除角速度、
-机身线速度、发送目标变化速度、接地足垫水平滑动的平方惩罚。
+奖励先按每秒速率计算：机身平行于正下方局部地面最多+2，净空匹配最多+1，
+六足全部接地最多+0.5；另外惩罚机身线/角加速度、发送目标变化速度和腿杆等非足端地形碰撞。
 乘控制周期得到每步奖励，失败额外扣5。各项系数在reward_terms中独立设置。
 目标变化惩罚使用限速后的实际发送命令，不是关节真实速度。
-滑动用相邻动作边界的足端世界XY位置差近似，只统计当前与地形接触的足垫。
+高频运动项使用相邻控制周期的机身线速度和角速度变化率；足端接触按六只脚去重计数。
 评分使用理想状态，与带噪IMU观测分离；info中的真实状态仅用于调试，不供策略输入。
 当前在动作边界检查失败/接触，尚未实现所有物理子步内事件捕获。
 数值异常则失败并返回上一帧有限观测，避免异常数据进入策略。
@@ -218,7 +272,7 @@ check_task无窗口运行3局固定角基线，依次使用seed、seed+1、seed+
 ## 固定地形图集与随机初态（当前任务）
 
 模型一次性建立4类×4级固定图集：平面、四向金字塔坡、随机砖面和离散矮障碍。
-每块2×2 m，间距2.4 m，顶面基准Z=0.7 m；坡度等级为3/7/11/15°，
+每块2×2 m，间距2.4 m，基准面与世界地面同为Z=0；坡度等级为3/7/11/15°，
 起伏幅度最高15 mm，障碍高度最高20 mm。每局不重建地形，而是随机选择块、等级、
 块内安全出生位置和机身Yaw；同一seed完全复现，适合以后多个环境共享同一MjModel。
 默认30%抽平地，其余在坡面、起伏和障碍间采样；`--max-terrain-level`限制最高难度。
@@ -232,11 +286,11 @@ check_task无窗口运行3局固定角基线，依次使用seed、seed+1、seed+
 名义参考仍为HOME，零位偏置作为永久局内误差存在；±20°关节扰动只设置初始动作。
 环境默认单独构造StandEnv时保持旧平地行为；StandTask默认及两个演示入口显式启用新场景。
 
-评分目标仍是机身相对重力水平，不跟随坡面法向。高度奖励和低高度终止改用
-机身原点Z减去其XY正下方最高地形Z（竖直射线查询；竖直净空，不是法向距离）。
-任务检测机身中心投影离开所选2×2 m地形块时以off_platform结束。
-state.height_m保留世界Z，新增ground_height_m、clearance_m和slope_deg。
-倾角仍为世界竖直与机身Z轴的夹角。场景参数和地面高度只进调试/评分，不进IMU观测。
+评分姿态目标是机身Z轴平行于正下方射线命中的局部地面法向。
+净空按该法向计算到圆柱机身外表面的近似最近距离，而不是世界Z方向的机身原点高度。
+离开所选2×2 m地形块不再终止，块外为连续世界平面；state.on_platform仅供诊断。
+state.height_m和tilt_deg保留世界坐标调试量，另提供ground_height_m、clearance_m、
+body_clearance_m、ground_alignment_deg、ground_normal和slope_deg。真实地形量只进评分/info，不进策略观测。
 当前没有倒地翻身、外力推压或已训练策略。
 
 ```bash
@@ -252,8 +306,8 @@ state.height_m保留世界Z，新增ground_height_m、clearance_m和slope_deg。
 --initial-body-deg和--body-tilt-probability已移除，图集最大坡度暂限制15°。
 每个任务结束后重新reset将重采样；显式相同seed可复现。
 
-当前训练任务确定为：初始关节大扰动+随机图集地形，学习恢复并维持水平站立。
+当前训练任务确定为：初始关节大扰动+随机图集地形，学习恢复并维持相对当地地面平行的站立。
 不含外力推压或倒地起身，不额外随机机身姿态。
 坡面为四向3～15°，默认30%平地；地图固定，只随机每局所在块、等级、落点和Yaw。
-评分目标相对重力水平、参考竖直净空97.2 mm，不要求恢复HOME关节角。
+评分参考机身下表面法向净空79.2 mm，满分带为59.2～99.2 mm，不要求恢复HOME关节角。
 该任务是否能明显优于固定角PD基线须后续评估，当前没有开始PPO训练。

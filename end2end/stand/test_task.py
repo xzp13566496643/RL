@@ -9,11 +9,25 @@ from .task import StandTask, TaskConfig, reward_terms
 
 class TaskTests(unittest.TestCase):
     def test_reward_direction(self):
-        good = sum(reward_terms(0, 0, 0, 0, 0, 0).values())
-        for index in range(6):
-            values = [0.] * 6
-            values[index] = .3
-            self.assertLess(sum(reward_terms(*values).values()), good)
+        target, tolerance = .0792, .020
+        good = sum(reward_terms(0, target, target, tolerance, 6, 0, 0, 0, 0).values())
+        bad_cases = (
+            reward_terms(.3, target, target, tolerance, 6, 0, 0, 0, 0),
+            reward_terms(0, target + tolerance + .02, target, tolerance, 6, 0, 0, 0, 0),
+            reward_terms(0, target, target, tolerance, 3, 0, 0, 0, 0),
+            reward_terms(0, target, target, tolerance, 6, 9.81, 0, 0, 0),
+            reward_terms(0, target, target, tolerance, 6, 0, 20, 0, 0),
+            reward_terms(0, target, target, tolerance, 6, 0, 0, 1, 0),
+            reward_terms(0, target, target, tolerance, 6, 0, 0, 0, 1),
+        )
+        for terms in bad_cases:
+            self.assertLess(sum(terms.values()), good)
+
+    def test_clearance_reward_is_symmetric_about_home(self):
+        target, tolerance, delta = .0792, .020, .012
+        low = reward_terms(0, target - tolerance - delta, target, tolerance, 6, 0, 0, 0, 0)
+        high = reward_terms(0, target + tolerance + delta, target, tolerance, 6, 0, 0, 0, 0)
+        self.assertAlmostEqual(low['body_clearance'], high['body_clearance'])
 
     def test_timeout(self):
         task = StandTask(config=TaskConfig(episode_seconds=.04))
@@ -33,15 +47,17 @@ class TaskTests(unittest.TestCase):
         self.assertFalse(task.done)
         self.assertEqual(task.total_reward, 0)
 
-    def test_fallen(self):
-        # 人为提高失败高度阈值，稳定验证失败路径，避免穿地引发接触反弹。
-        task = StandTask(config=TaskConfig(target_height_m=.2, min_height_m=.15))
+    def test_large_tilt_is_not_terminal(self):
+        task = StandTask()
         task.reset(42)
-        _, reward, terminated, truncated, info = task.step(np.zeros(18))
-        self.assertTrue(terminated)
+        # 在高处旋转机身，隔离“大倾角”与真实地形接触。
+        task.env.data.qpos[2] = .5
+        task.env.data.qpos[3:7] = [np.sqrt(.5), np.sqrt(.5), 0., 0.]
+        mujoco.mj_forward(task.env.model, task.env.data)
+        _, _, terminated, truncated, info = task.step(np.zeros(18))
+        self.assertFalse(terminated)
         self.assertFalse(truncated)
-        self.assertIn(info['reason'], ('body_contact', 'low_height', 'excessive_tilt'))
-        self.assertLess(reward, 0)
+        self.assertIsNone(info['reason'])
 
     def test_body_contact(self):
         task = StandTask()
@@ -49,6 +65,18 @@ class TaskTests(unittest.TestCase):
         task.env.data.qpos[2] = .01
         mujoco.mj_forward(task.env.model, task.env.data)
         self.assertTrue(task._contacts()[0])
+
+    def test_leaving_patch_is_not_a_terminal_boundary(self):
+        task = StandTask()
+        task.reset(42)
+        task.env.data.qpos[:2] = task.env.patch['patch_center'] + [1.1, 0.]
+        mujoco.mj_forward(task.env.model, task.env.data)
+        self.assertFalse(task.env.state()['on_platform'])
+        _, _, terminated, _, info = task.step(np.zeros(18))
+        self.assertNotEqual(info['reason'], 'off_platform')
+        # 可能因人工瞬移后机身接触地形，但不能由地图边界触发。
+        if terminated:
+            self.assertEqual(info['reason'], 'body_contact')
 
 
 if __name__ == '__main__':

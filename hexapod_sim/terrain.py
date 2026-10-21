@@ -16,7 +16,8 @@ ATLAS_TYPES = ('flat', 'pyramid', 'rough', 'obstacles')
 ATLAS_LEVELS = 4
 ATLAS_PATCH_SIZE = 2.0
 ATLAS_PATCH_SPACING = 2.4
-ATLAS_TOP_Z = 0.7
+# 图集基准面与世界地面齐平，离开地形块后不会撞到0.7 m高的盒子外壁。
+ATLAS_TOP_Z = 0.0
 ATLAS_SLOPE_DEG = (3., 7., 11., 15.)
 ATLAS_ROUGH_M = (.003, .007, .011, .015)
 ATLAS_OBSTACLE_M = (.005, .010, .015, .020)
@@ -71,7 +72,8 @@ def add_training_atlas(root, world):
         center = atlas_patch_center('rough', level)
         rng = np.random.default_rng(1000 + level)
         cells, cell = 8, ATLAS_PATCH_SIZE/8
-        heights = rng.uniform(-ATLAS_ROUGH_M[level], ATLAS_ROUGH_M[level], (cells, cells))
+        # 世界平面位于Z=0；使用非负起伏，避免负高度砖被平面覆盖。
+        heights = rng.uniform(0., 2*ATLAS_ROUGH_M[level], (cells, cells))
         for iy in range(cells):
             for ix in range(cells):
                 xy = center + [(ix+.5)*cell-half, (iy+.5)*cell-half]

@@ -11,23 +11,23 @@ from hexapod_sim.terrain import ATLAS_TYPES, ATLAS_TOP_Z
 
 
 class SceneTests(unittest.TestCase):
-    def test_no_artificial_body_tilt(self):
+    def test_pre_settle_starts_formal_episode_from_rest(self):
         env = StandEnv(scene_config=SceneConfig(flat_probability=0.))
         for seed in range(10):
             state = env.reset(seed)
-            rotation = env.data.body('body').xmat.reshape(3, 3)
-            roll = np.rad2deg(np.arctan2(rotation[2, 1], rotation[2, 2]))
-            pitch = np.rad2deg(np.arcsin(np.clip(-rotation[2, 0], -1, 1)))
-            self.assertAlmostEqual(roll, 0.)
-            self.assertAlmostEqual(pitch, 0.)
             self.assertTrue(np.all(np.abs(env.errors.servo_deg) <= 3))
-            self.assertAlmostEqual(state['tilt_deg'], 0., places=5)
+            self.assertEqual(env.data.time, 0.)
+            np.testing.assert_array_equal(env.data.qvel, 0.)
+            self.assertTrue(state['reset_landing_detected'])
+            self.assertGreaterEqual(state['reset_settle_duration_s'],
+                                    env.scene_config.settle_seconds)
+            self.assertTrue(np.isfinite(state['tilt_deg']))
 
     def test_initial_joint_disturbance_and_handoff(self):
         env = StandEnv(scene_config=SceneConfig())
         env.reset(42)
         bias = env.errors.joint_targets(np.zeros(18))
-        np.testing.assert_allclose(controlled_qpos(env.model, env.data), env.command + bias, atol=1e-12)
+        np.testing.assert_allclose(env.data.ctrl, env.command + bias, atol=1e-12)
         self.assertTrue(np.any(np.abs(env.initial_joint_offset) > 1e-6))
         self.assertTrue(np.all(np.abs(np.rad2deg(env.initial_joint_offset))
                                <= env.scene_config.initial_joint_deg + 1e-9))
@@ -74,18 +74,17 @@ class SceneTests(unittest.TestCase):
             for contact in env.data.contact:
                 a, b = contact.geom1, contact.geom2
                 if env.model.geom_group[a] == 2 or env.model.geom_group[b] == 2:
-                    self.assertGreaterEqual(contact.dist, -2e-3)
+                    # 预稳定后的柔性接触允许少量稳态压入，但不能出现明显穿模。
+                    self.assertGreaterEqual(contact.dist, -10e-3)
 
     def test_flat_control(self):
         env = StandEnv(scene_config=SceneConfig(1., 0., 0., 0))
         state = env.reset(42)
         self.assertEqual(state['slope_deg'], 0.)
-        self.assertAlmostEqual(state['tilt_deg'], 0.)
         self.assertAlmostEqual(state['height_m'] - env.support_point[2], state['clearance_m'])
-        np.testing.assert_allclose(controlled_qpos(env.model, env.data),
-                                   env.errors.joint_targets(env.command))
+        np.testing.assert_allclose(env.data.ctrl, env.errors.joint_targets(env.command))
 
-    def test_task_uses_clearance(self):
+    def test_task_uses_local_body_clearance(self):
         task = StandTask(env=StandEnv(scene_config=SceneConfig(1., 0., 0., 0)))
         task.reset(42)
         # 在平坦图集块内移动并补偿地形高度：相对高度保持。
@@ -95,7 +94,7 @@ class SceneTests(unittest.TestCase):
         env.data.qpos[2] = env.ground_height(*env.data.qpos[:2]) + clearance
         self.assertAlmostEqual(env.state()['clearance_m'], clearance)
         _, _, _, _, info = task.step(np.zeros(18))
-        self.assertTrue(np.isfinite(info['reward_rates']['height']))
+        self.assertTrue(np.isfinite(info['reward_rates']['body_clearance']))
 
 
 if __name__ == '__main__':

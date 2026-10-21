@@ -75,7 +75,11 @@ def main():
                                    'No learned policy | close window to exit')])
                 viewer.sync()
                 time.sleep(max(0., wall_start + env.data.time - time.monotonic()))
-            if first_failure is None and (state['clearance_m'] < .04 or state['tilt_deg'] > 60):
+            body_geom = env.model.geom('body_collision').id
+            body_touch = any(c.dist <= 0 and body_geom in (c.geom1, c.geom2)
+                             and env.model.geom_group[c.geom2 if c.geom1 == body_geom else c.geom1] == 2
+                             for c in env.data.contact)
+            if first_failure is None and body_touch:
                 first_failure = dict(time_s=state['time_s'], clearance_m=state['clearance_m'],
                                      tilt_deg=state['tilt_deg'])
                 print('Fall detected; demo continues without resetting: ' + json.dumps(first_failure), flush=True)

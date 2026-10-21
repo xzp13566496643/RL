@@ -33,9 +33,13 @@ class ActorTests(unittest.TestCase):
         self.assertEqual(action.shape, (4, ACTION_DIM))
         self.assertEqual(log_probability.shape, (4,))
         self.assertEqual(entropy.shape, (4,))
+        self.assertTrue(torch.all(action < 1.))
+        self.assertTrue(torch.all(action > -1.))
         self.assertTrue(torch.isfinite(action).all())
         self.assertTrue(torch.isfinite(log_probability).all())
         self.assertTrue(torch.isfinite(entropy).all())
+        recalculated = self.actor.log_probability(observation, action)
+        torch.testing.assert_close(recalculated, log_probability)
 
     def test_deterministic_action_is_bounded(self):
         with torch.no_grad():
@@ -43,6 +47,14 @@ class ActorTests(unittest.TestCase):
         action = self.actor.deterministic(torch.zeros(OBSERVATION_DIM))
         self.assertTrue(torch.all(action <= 1.))
         self.assertTrue(torch.all(action >= -1.))
+
+    def test_log_probability_at_action_boundaries_is_finite(self):
+        observation = torch.zeros(2, OBSERVATION_DIM)
+        actions = torch.stack((torch.full((ACTION_DIM,), -1.),
+                               torch.full((ACTION_DIM,), 1.)))
+        result = self.actor.log_probability(observation, actions)
+        self.assertEqual(result.shape, (2,))
+        self.assertTrue(torch.isfinite(result).all())
 
     def test_invalid_observation(self):
         with self.assertRaises(ValueError):
