@@ -89,7 +89,7 @@ def write_training_plot(metrics_path, output_path=None):
                              ('episode return', 'mean_completed_return'))),
         ('Positive reward rates', (('alignment', 'reward_rate_ground_alignment'),
                                    ('clearance', 'reward_rate_body_clearance'),
-                                   ('foot contact', 'reward_rate_foot_contact'))),
+                                   ('foot proximity', 'reward_rate_foot_contact'))),
         ('Penalty rates', (('motion', 'reward_rate_high_frequency_motion'),
                            ('action change', 'reward_rate_action_change'),
                            ('collision', 'reward_rate_nonfoot_collision'))),

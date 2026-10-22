@@ -10,24 +10,43 @@ from .task import StandTask, TaskConfig, reward_terms
 class TaskTests(unittest.TestCase):
     def test_reward_direction(self):
         target, tolerance = .0792, .020
-        good = sum(reward_terms(0, target, target, tolerance, 6, 0, 0, 0, 0).values())
+        feet_on_ground = np.zeros(6)
+        feet_away = np.full(6, .04)
+        good = sum(reward_terms(0, target, target, tolerance,
+                                feet_on_ground, 0, 0, 0, 0, 0).values())
         bad_cases = (
-            reward_terms(.3, target, target, tolerance, 6, 0, 0, 0, 0),
-            reward_terms(0, target + tolerance + .02, target, tolerance, 6, 0, 0, 0, 0),
-            reward_terms(0, target, target, tolerance, 3, 0, 0, 0, 0),
-            reward_terms(0, target, target, tolerance, 6, 9.81, 0, 0, 0),
-            reward_terms(0, target, target, tolerance, 6, 0, 20, 0, 0),
-            reward_terms(0, target, target, tolerance, 6, 0, 0, 1, 0),
-            reward_terms(0, target, target, tolerance, 6, 0, 0, 0, 1),
+            reward_terms(.3, target, target, tolerance, feet_on_ground, 0, 0, 0, 0, 0),
+            reward_terms(0, target + tolerance + .02, target, tolerance,
+                         feet_on_ground, 0, 0, 0, 0, 0),
+            reward_terms(0, target, target, tolerance, feet_away, 0, 0, 0, 0, 0),
+            reward_terms(0, target, target, tolerance, feet_on_ground, 1, 0, 0, 0, 0),
+            reward_terms(0, target, target, tolerance, feet_on_ground, 0, 9.81, 0, 0, 0),
+            reward_terms(0, target, target, tolerance, feet_on_ground, 0, 0, 20, 0, 0),
+            reward_terms(0, target, target, tolerance, feet_on_ground, 0, 0, 0, 1, 0),
+            reward_terms(0, target, target, tolerance, feet_on_ground, 0, 0, 0, 0, 1),
         )
         for terms in bad_cases:
             self.assertLess(sum(terms.values()), good)
 
     def test_clearance_reward_is_symmetric_about_home(self):
         target, tolerance, delta = .0792, .020, .012
-        low = reward_terms(0, target - tolerance - delta, target, tolerance, 6, 0, 0, 0, 0)
-        high = reward_terms(0, target + tolerance + delta, target, tolerance, 6, 0, 0, 0, 0)
+        low = reward_terms(0, target - tolerance - delta, target, tolerance,
+                           np.zeros(6), 0, 0, 0, 0, 0)
+        high = reward_terms(0, target + tolerance + delta, target, tolerance,
+                            np.zeros(6), 0, 0, 0, 0, 0)
         self.assertAlmostEqual(low['body_clearance'], high['body_clearance'])
+
+    def test_foot_proximity_is_center_based_and_stationary_only(self):
+        target, tolerance = .0792, .020
+        near = reward_terms(0, target, target, tolerance,
+                            np.zeros(6), 0, 0, 0, 0, 0)['foot_contact']
+        far = reward_terms(0, target, target, tolerance,
+                           np.full(6, .02), 0, 0, 0, 0, 0)['foot_contact']
+        moving = reward_terms(0, target, target, tolerance,
+                              np.zeros(6), 1, 0, 0, 0, 0)['foot_contact']
+        self.assertEqual(near, 1.5)
+        self.assertAlmostEqual(far, 1.5 * np.exp(-1.))
+        self.assertEqual(moving, 0.)
 
     def test_timeout(self):
         task = StandTask(config=TaskConfig(episode_seconds=.04))

@@ -110,9 +110,9 @@ class TrainingConfig:
         episode_seconds=10., target_body_clearance_m=.0792,
         body_clearance_tolerance_m=.020, failure_penalty=5.,
         reward=RewardConfig(
-            ground_alignment=2., alignment_scale_rad=.2,
+            ground_alignment=1., alignment_scale_rad=.2,
             body_clearance=1., clearance_falloff_m=.02,
-            foot_contact=.5,
+            foot_contact=1.5, foot_distance_scale_m=.020,
             linear_acceleration_penalty=.02, linear_acceleration_scale=9.81,
             angular_acceleration_penalty=.02, angular_acceleration_scale=20.,
             action_change_penalty=.01, nonfoot_collision_penalty=.25)))

@@ -27,7 +27,8 @@ class ConfigTests(unittest.TestCase):
 
     def test_reward_settings_are_applied(self):
         reward = RewardConfig(ground_alignment=4.)
-        terms = reward_terms(0, .0792, .0792, .02, 6, 0, 0, 0, 0, reward)
+        terms = reward_terms(0, .0792, .0792, .02, torch.zeros(6),
+                             0, 0, 0, 0, 0, reward)
         self.assertEqual(terms['ground_alignment'], 4.)
 
     def test_invalid_configs(self):
