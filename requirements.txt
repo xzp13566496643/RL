@@ -1,0 +1,12 @@
+# 独立MJX/JAX后端。Python 3.10当前使用最后一个兼容的JAX 0.6系列。
+jax[cuda12]==0.6.2
+jaxlib==0.6.2
+jax-cuda12-plugin==0.6.2
+jax-cuda12-pjrt==0.6.2
+mujoco==3.17.0
+mujoco-mjx==3.17.0
+nvidia-cuda-nvcc-cu12>=12.6,<13
+numpy>=1.26,<2.3
+pyyaml>=6
+optax==0.2.5
+pillow>=10,<13

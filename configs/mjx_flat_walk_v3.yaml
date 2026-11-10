@@ -1,0 +1,31 @@
+# V3 GPU并行训练配置。
+backend: mjx
+device: gpu
+task_config: flat_walk_v3.yaml
+num_envs: 256
+rollout_steps: 25
+episode_steps: 500
+total_iterations: 5000
+physics_timestep_s: 0.005
+control_dt_s: 0.02
+physics_substeps_per_control: 4
+terrain: flat
+mjx_compatible_foot: cylinder
+disable_robot_self_collision: true
+xla_preallocate: false
+ppo:
+  learning_rate: 0.0003
+  gamma: 0.995
+  gae_lambda: 0.95
+  clip_range: 0.2
+  value_coefficient: 0.5
+  entropy_coefficient: 0.003
+  epochs: 3
+  max_gradient_norm: 1.0
+  target_kl: 0.01
+output_dir: outputs/mjx-runs-v3
+network:
+  initial_log_std: -1.0
+checkpoint_interval: 50
+# 服务器只记录JSONL和checkpoint；曲线同步回本机后手动生成。
+plot_interval: 0

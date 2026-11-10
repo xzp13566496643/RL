@@ -1,0 +1,233 @@
+{
+  "seed": 42,
+  "environment": {
+    "control_dt": 0.02,
+    "gait_frequency_hz": 1.25,
+    "max_speed_deg_s": 180.0,
+    "joint_bias_deg": 2.8647889757
+  },
+  "scene": {
+    "initial_joint_deg": 0.0,
+    "settle_seconds": 1.0
+  },
+  "task": {
+    "episode_seconds": 10.0,
+    "healthy_clearance_range_m": [
+      0.0533,
+      0.1067
+    ],
+    "reward": {
+      "linear_velocity_weight": 4.0,
+      "linear_velocity_sigma": 0.05,
+      "stationary_velocity_weight": 4.0,
+      "yaw_velocity_weight": 2.0,
+      "yaw_velocity_sigma": 0.05,
+      "stationary_yaw_weight": 2.0,
+      "stationary_yaw_deadzone_rad_s": 0.05,
+      "stationary_yaw_quadratic_weight": 10.0,
+      "velocity_command_threshold": 0.05,
+      "body_height_weight": 1.0,
+      "body_height_falloff_m": 0.0533,
+      "body_tilt_weight": 1.0,
+      "body_tilt_free_deg": 10.0,
+      "body_tilt_full_deg": 30.0,
+      "gait_swing_height_m": 0.03,
+      "feet_phase_weight": 1.2,
+      "feet_phase_no_lift_weight": 0.6,
+      "feet_phase_error_scale_m": 0.015,
+      "feet_airborne_threshold_m": 0.0005,
+      "adjacent_coordination_weight": 0.6,
+      "feet_air_time_weight": 22.5,
+      "feet_air_time_threshold_s": 0.1,
+      "feet_air_time_cap_s": 0.3,
+      "feet_height_weight": 5.0,
+      "feet_height_target_m": 0.03,
+      "feet_height_min_peak_m": 0.0005,
+      "phase_boundary_window_s": 0.02,
+      "gait_frequency_hz": 1.25,
+      "home_l2_weight": 1.5,
+      "home_l1_stationary_weight": 0.1,
+      "action_rate_weight": 0.3,
+      "action_magnitude_weight": 0.08,
+      "joint_acceleration_weight": 0.00001,
+      "torque_weight": 0.001,
+      "roll_pitch_rate_weight": 0.1,
+      "vertical_velocity_weight": 0.2,
+      "feet_slip_weight": 10.0
+    }
+  },
+  "velocity_commands": {
+    "selected_preset": "stage2a",
+    "presets": {
+      "stage1": {
+        "probabilities": {
+          "stationary": 1.0,
+          "axis_xy": 0.0,
+          "omni_xy": 0.0,
+          "xy_yaw": 0.0
+        },
+        "axis_speed_range_m_s": [
+          0.1,
+          0.2
+        ],
+        "omni_speed_range_m_s": [
+          0.1,
+          0.3
+        ],
+        "xy_yaw_speed_range_m_s": [
+          0.1,
+          0.3
+        ],
+        "yaw_speed_range_rad_s": [
+          0.1,
+          0.3
+        ]
+      },
+      "stage2a": {
+        "probabilities": {
+          "stationary": 0.5,
+          "axis_xy": 0.5,
+          "omni_xy": 0.0,
+          "xy_yaw": 0.0
+        },
+        "axis_speed_range_m_s": [
+          0.1,
+          0.2
+        ],
+        "omni_speed_range_m_s": [
+          0.1,
+          0.3
+        ],
+        "xy_yaw_speed_range_m_s": [
+          0.1,
+          0.3
+        ],
+        "yaw_speed_range_rad_s": [
+          0.1,
+          0.3
+        ]
+      },
+      "stage2b": {
+        "probabilities": {
+          "stationary": 0.3,
+          "axis_xy": 0.7,
+          "omni_xy": 0.0,
+          "xy_yaw": 0.0
+        },
+        "axis_speed_range_m_s": [
+          0.1,
+          0.3
+        ],
+        "omni_speed_range_m_s": [
+          0.1,
+          0.3
+        ],
+        "xy_yaw_speed_range_m_s": [
+          0.1,
+          0.3
+        ],
+        "yaw_speed_range_rad_s": [
+          0.1,
+          0.3
+        ]
+      },
+      "stage2c": {
+        "probabilities": {
+          "stationary": 0.2,
+          "axis_xy": 0.8,
+          "omni_xy": 0.0,
+          "xy_yaw": 0.0
+        },
+        "axis_speed_range_m_s": [
+          0.2,
+          0.5
+        ],
+        "omni_speed_range_m_s": [
+          0.1,
+          0.3
+        ],
+        "xy_yaw_speed_range_m_s": [
+          0.1,
+          0.3
+        ],
+        "yaw_speed_range_rad_s": [
+          0.1,
+          0.3
+        ]
+      },
+      "stage3a": {
+        "probabilities": {
+          "stationary": 0.2,
+          "axis_xy": 0.4,
+          "omni_xy": 0.4,
+          "xy_yaw": 0.0
+        },
+        "axis_speed_range_m_s": [
+          0.2,
+          0.5
+        ],
+        "omni_speed_range_m_s": [
+          0.1,
+          0.3
+        ],
+        "xy_yaw_speed_range_m_s": [
+          0.1,
+          0.3
+        ],
+        "yaw_speed_range_rad_s": [
+          0.1,
+          0.3
+        ]
+      },
+      "stage3b": {
+        "probabilities": {
+          "stationary": 0.2,
+          "axis_xy": 0.2,
+          "omni_xy": 0.6,
+          "xy_yaw": 0.0
+        },
+        "axis_speed_range_m_s": [
+          0.2,
+          0.5
+        ],
+        "omni_speed_range_m_s": [
+          0.2,
+          0.5
+        ],
+        "xy_yaw_speed_range_m_s": [
+          0.2,
+          0.5
+        ],
+        "yaw_speed_range_rad_s": [
+          0.1,
+          0.3
+        ]
+      },
+      "stage4": {
+        "probabilities": {
+          "stationary": 0.2,
+          "axis_xy": 0.3,
+          "omni_xy": 0.3,
+          "xy_yaw": 0.2
+        },
+        "axis_speed_range_m_s": [
+          0.2,
+          0.5
+        ],
+        "omni_speed_range_m_s": [
+          0.2,
+          0.5
+        ],
+        "xy_yaw_speed_range_m_s": [
+          0.2,
+          0.5
+        ],
+        "yaw_speed_range_rad_s": [
+          0.1,
+          0.3
+        ]
+      }
+    },
+    "overrides": {}
+  }
+}
